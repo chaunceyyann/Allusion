@@ -185,13 +185,40 @@ export class WorkerManager {
     characterThreshold: number,
     overrideCaptionFile: boolean,
   ): Promise<PredictedTag[]> {
-    // Preprocess image in the main process (sharp crashes in worker threads due to V8 sandbox)
+    // Check for caption file first — skip expensive preprocessing if caption exists
+    if (!overrideCaptionFile) {
+      const fs = require('fs');
+      const path = require('path');
+      const dir = path.dirname(filePath);
+      const base = path.basename(filePath, path.extname(filePath));
+      const captionPath = path.join(dir, `${base}.txt`);
+      if (fs.existsSync(captionPath)) {
+        // Send to worker without tensor — worker will read the caption file directly
+        const response = await this.sendRequest(
+          {
+            type: 'infer',
+            filePath,
+            generalThreshold,
+            characterThreshold,
+            overrideCaptionFile,
+          },
+          INFERENCE_TIMEOUT_MS,
+        );
+        if (response.type === 'inferResult') {
+          if (response.error) throw new Error(response.error);
+          return response.tags;
+        }
+        if (response.type === 'error') throw new Error(response.message);
+        throw new Error(`Unexpected response type: ${response.type}`);
+      }
+    }
+
+    // No caption file — preprocess image for model inference
     let tensorData: Float32Array | undefined;
     try {
       const result = await preprocessImage(filePath);
       tensorData = result.tensor;
     } catch (err) {
-      // If preprocessing fails, send without tensor — worker will report the error
       console.error('[WorkerManager] Image preprocessing failed:', err);
     }
 

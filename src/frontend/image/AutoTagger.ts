@@ -21,8 +21,15 @@ class AutoTagger {
   @observable totalToProcess = 0;
   @observable executionProvider: string | null = null;
 
+  private cancelRequested = false;
+
   constructor() {
     makeObservable(this);
+  }
+
+  /** Request cancellation of the current bulk tagging operation. */
+  cancelBulkAutoTag(): void {
+    this.cancelRequested = true;
   }
 
   /**
@@ -190,11 +197,28 @@ class AutoTagger {
       this.totalToProcess = total;
     });
 
+    this.cancelRequested = false;
     const toastKey = 'auto-tag-bulk';
 
     try {
       for (let i = 0; i < total; i++) {
+        if (this.cancelRequested) {
+          AppToaster.show(
+            { message: `Auto-tagging stopped. Processed ${i} of ${total} images.`, timeout: 5000 },
+            toastKey,
+          );
+          break;
+        }
+
         const file = fileSnapshot[i];
+
+        // Skip files that already have tags
+        if (file.tags.size > 0) {
+          runInAction(() => {
+            this.progress = i + 1;
+          });
+          continue;
+        }
 
         AppToaster.show(
           {

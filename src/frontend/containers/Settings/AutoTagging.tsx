@@ -223,15 +223,37 @@ export const AutoTagging = observer(() => {
         illustration content. No data is sent to external servers.
       </Callout>
 
-      <h4>Model Status</h4>
+      {/* --- Load Model Section --- */}
+      <h4>Model</h4>
       <p>
         {autoTagger.isModelLoaded
           ? `✅ Model loaded — running on ${autoTagger.executionProvider ?? 'unknown'} provider.`
           : '⏳ Model is not loaded yet.'}
       </p>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '8px' }}>
         <label style={{ margin: 0 }}>
-          Execution Provider
+          Model
+          <select value={activeModelId} onChange={handleModelSelect} style={{ marginLeft: '8px' }}>
+            <optgroup label="V2 Models">
+              {v2Models.map((model) => (
+                <option key={model.id} value={model.id} disabled={!model.isAvailable}>
+                  {model.displayName}
+                  {model.isBundled ? ' (Bundled)' : model.isAvailable ? ' ✓' : ' — Not Downloaded'}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="V3 Models">
+              {v3Models.map((model) => (
+                <option key={model.id} value={model.id} disabled={!model.isAvailable}>
+                  {model.displayName}
+                  {model.isAvailable ? ' ✓' : ' — Not Downloaded'}
+                </option>
+              ))}
+            </optgroup>
+          </select>
+        </label>
+        <label style={{ margin: 0 }}>
+          Provider
           <select
             value={executionProvider}
             onChange={(e) => {
@@ -245,49 +267,18 @@ export const AutoTagging = observer(() => {
             ))}
           </select>
         </label>
+        <Button
+          text={autoTagger.isModelLoaded ? 'Reload Model' : 'Load Model'}
+          onClick={handleLoadModel}
+          styling="filled"
+          icon={IconSet.RELOAD}
+        />
       </div>
-      <Button
-        text={autoTagger.isModelLoaded ? 'Reload Model' : 'Load Model'}
-        onClick={handleLoadModel}
-        styling="outlined"
-        icon={IconSet.RELOAD}
-      />
 
-      <h4>Model Selection</h4>
-      <label>
-        Active Model
-        <select value={activeModelId} onChange={handleModelSelect}>
-          <optgroup label="V2 Models">
-            {v2Models.map((model) => (
-              <option
-                key={model.id}
-                value={model.id}
-                disabled={!model.isAvailable}
-              >
-                {model.displayName}
-                {model.isBundled ? ' (Bundled)' : model.isAvailable ? ' ✓' : ' — Not Downloaded'}
-              </option>
-            ))}
-          </optgroup>
-          <optgroup label="V3 Models">
-            {v3Models.map((model) => (
-              <option
-                key={model.id}
-                value={model.id}
-                disabled={!model.isAvailable}
-              >
-                {model.displayName}
-                {model.isAvailable ? ' ✓' : ' — Not Downloaded'}
-              </option>
-            ))}
-          </optgroup>
-        </select>
-      </label>
-
-      {models.length > 0 && (
-        <div style={{ marginTop: '8px' }}>
-          <p style={{ marginBottom: '4px' }}>Download additional models:</p>
-          <div className="vstack">
+      {models.some((m) => !m.isAvailable) && (
+        <details style={{ marginTop: '8px' }}>
+          <summary>Download additional models</summary>
+          <div className="vstack" style={{ marginTop: '4px' }}>
             {models
               .filter((m) => !m.isAvailable)
               .map((model) => {
@@ -311,13 +302,45 @@ export const AutoTagging = observer(() => {
                   </div>
                 );
               })}
-            {models.every((m) => m.isAvailable) && (
-              <p style={{ fontStyle: 'italic' }}>All models are downloaded.</p>
-            )}
           </div>
-        </div>
+        </details>
       )}
 
+      {/* --- Tag All Section --- */}
+      <h4>Bulk Auto-Tag</h4>
+      <p>
+        Run auto-tagging on all {fileStore.numTotalFiles} images in your library.
+      </p>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <Button
+          text={
+            autoTagger.isProcessing
+              ? `Processing… (${autoTagger.progress} / ${autoTagger.totalToProcess})`
+              : 'Auto-Tag All Images'
+          }
+          onClick={handleBulkAutoTag}
+          styling="filled"
+          icon={IconSet.TAG}
+          disabled={autoTagger.isProcessing}
+        />
+        {autoTagger.isProcessing && (
+          <Button
+            text="Stop"
+            onClick={() => autoTagger.cancelBulkAutoTag()}
+            styling="outlined"
+            icon={IconSet.CLOSE}
+          />
+        )}
+      </div>
+      {autoTagger.isProcessing && (
+        <progress
+          value={autoTagger.progress}
+          max={autoTagger.totalToProcess}
+          style={{ width: '100%', marginTop: '8px' }}
+        />
+      )}
+
+      {/* --- Fine-Tune Options --- */}
       <h4>Thresholds</h4>
       <label>
         General Threshold: {generalThreshold.toFixed(2)}
@@ -344,7 +367,8 @@ export const AutoTagging = observer(() => {
         />
       </label>
 
-      <h4>Tagging Triggers</h4>
+      {/* --- Toggles --- */}
+      <h4>Options</h4>
       <div className="vstack">
         <Toggle checked={autoTagOnImport} onChange={toggleAutoTagOnImport}>
           Auto-tag when importing images
@@ -352,41 +376,10 @@ export const AutoTagging = observer(() => {
         <Toggle checked={autoTagOnLoad} onChange={toggleAutoTagOnLoad}>
           Auto-tag when loading images
         </Toggle>
+        <Toggle checked={overrideCaptionFile} onChange={toggleOverrideCaptionFile}>
+          Override caption file (always use model even when .txt sidecar exists)
+        </Toggle>
       </div>
-
-      <h4>Caption Files</h4>
-      <Toggle checked={overrideCaptionFile} onChange={toggleOverrideCaptionFile}>
-        Override caption file (always use model inference even when a .txt sidecar exists)
-      </Toggle>
-
-      <h4>Bulk Auto-Tag Library</h4>
-      <p>
-        Run auto-tagging on all {fileStore.numTotalFiles} images currently in your library. Tags
-        will be created and assigned based on detected image content.
-      </p>
-      <ButtonGroup>
-        <Button
-          text={
-            autoTagger.isProcessing
-              ? `Processing… (${autoTagger.progress} / ${autoTagger.totalToProcess})`
-              : 'Auto-Tag All Images'
-          }
-          onClick={handleBulkAutoTag}
-          styling="filled"
-          icon={IconSet.TAG}
-          disabled={autoTagger.isProcessing}
-        />
-      </ButtonGroup>
-
-      {autoTagger.isProcessing && (
-        <div style={{ marginTop: '8px' }}>
-          <progress
-            value={autoTagger.progress}
-            max={autoTagger.totalToProcess}
-            style={{ width: '100%' }}
-          />
-        </div>
-      )}
     </>
   );
 });
