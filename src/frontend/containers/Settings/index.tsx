@@ -7,6 +7,7 @@ import { Advanced } from './Advanced';
 import { Appearance } from './Appearance';
 import { AutoTagging } from './AutoTagging';
 import { BackgroundProcesses } from './BackgroundProcesses';
+import { DuplicateDetection } from './DuplicateDetection';
 import { ImageFormatPicker } from './ImageFormatPicker';
 import { ImportExport } from './ImportExport';
 import { Shortcuts } from './Shortcuts';
@@ -65,6 +66,10 @@ const Tabs = () => {
     {
       label: 'Auto Tagging',
       content: AutoTagging,
+    },
+    {
+      label: 'Duplicate Detection',
+      content: DuplicateDetection,
     },
     {
       label: 'Background Processes',

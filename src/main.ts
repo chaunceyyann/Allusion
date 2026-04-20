@@ -27,6 +27,7 @@ import { WindowSystemButtonPress } from './ipc/messages';
 import { ModelRegistry } from './backend/ModelRegistry';
 import { WorkerManager } from './backend/WorkerManager';
 import { DownloadManager } from './backend/DownloadManager';
+import { DuplicateDetector } from './backend/DuplicateDetector';
 
 // TODO: change this when running in portable mode, see portable-improvements branch
 const basePath = app.getPath('userData');
@@ -52,6 +53,9 @@ let clipServer: ClipServer | null = null;
 const modelRegistry = new ModelRegistry();
 const workerManager = new WorkerManager();
 const downloadManager = new DownloadManager();
+
+// Duplicate detection infrastructure
+const duplicateDetector = new DuplicateDetector();
 
 function initialize() {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
@@ -814,6 +818,28 @@ MainMessenger.onAutoTagGetModels(() => ({
   models: modelRegistry.getModelsWithStatus(),
   activeModelId: modelRegistry.activeModelId,
 }));
+
+// ----------------------------- Duplicate Detection IPC Handlers ----------------------------- //
+
+MainMessenger.onDedupStart(async (filePaths: string[]) => {
+  duplicateDetector
+    .findDuplicates(filePaths, (progress) => {
+      const wc = mainWindow?.webContents;
+      if (wc) {
+        MainMessenger.sendDedupProgress(wc, progress);
+      }
+    })
+    .then((result) => {
+      const wc = mainWindow?.webContents;
+      if (wc) {
+        MainMessenger.sendDedupResult(wc, result);
+      }
+    });
+});
+
+MainMessenger.onDedupStop(async () => {
+  duplicateDetector.cancel();
+});
 
 // Helper functions and variables/constants
 

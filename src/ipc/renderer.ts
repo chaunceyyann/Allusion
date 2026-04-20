@@ -12,6 +12,10 @@ import {
   AutoTagInferResponse,
   AutoTagModelStatus,
   AutoTagModelsResponse,
+  DEDUP_START,
+  DEDUP_STOP,
+  DEDUP_PROGRESS,
+  DEDUP_RESULT,
   CHECK_FOR_UPDATES,
   CLEAR_DATABASE,
   CLOSED_PREVIEW_WINDOW,
@@ -66,6 +70,7 @@ import {
   WINDOW_SYSTEM_BUTTON_PRESS,
   WINDOW_UNMAXIMIZE,
 } from './messages';
+import type { DedupProgress, DuplicateGroup } from '../backend/DuplicateDetector';
 
 export class RendererMessenger {
   static initialized = () => ipcRenderer.send(INITIALIZED);
@@ -217,4 +222,21 @@ export class RendererMessenger {
 
   static autoTagGetModels = (): Promise<AutoTagModelsResponse> =>
     ipcRenderer.invoke(AUTO_TAG_GET_MODELS);
+
+  /////////////////// Duplicate Detection ////////////////////
+  static dedupStart = (filePaths: string[]): Promise<void> =>
+    ipcRenderer.invoke(DEDUP_START, filePaths);
+
+  static dedupStop = (): Promise<void> => ipcRenderer.invoke(DEDUP_STOP);
+
+  static onDedupProgress = (cb: (progress: DedupProgress) => void) =>
+    ipcRenderer.on(DEDUP_PROGRESS, (_, progress) => cb(progress));
+
+  static onDedupResult = (cb: (result: DuplicateGroup[]) => void) =>
+    ipcRenderer.on(DEDUP_RESULT, (_, result) => cb(result));
+
+  static removeDedupListeners = () => {
+    ipcRenderer.removeAllListeners(DEDUP_PROGRESS);
+    ipcRenderer.removeAllListeners(DEDUP_RESULT);
+  };
 }
