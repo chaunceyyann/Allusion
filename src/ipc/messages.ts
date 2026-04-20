@@ -155,3 +155,12 @@ export type AutoTagModelsResponse = {
 
 // Re-export auto-tag types for convenience
 export type { PredictedTag, ModelAvailability, DownloadProgress, DownloadResult };
+
+/////////////////// Duplicate Detection ////////////////////
+export const DEDUP_START = 'DEDUP_START';
+export const DEDUP_STOP = 'DEDUP_STOP';
+export const DEDUP_PROGRESS = 'DEDUP_PROGRESS';
+export const DEDUP_RESULT = 'DEDUP_RESULT';
+
+// Re-export duplicate detection types for convenience
+export type { DuplicateGroup, DedupProgress } from '../backend/DuplicateDetector';

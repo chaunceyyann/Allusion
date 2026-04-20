@@ -11,6 +11,10 @@ import {
   AutoTagInferResponse,
   AutoTagModelStatus,
   AutoTagModelsResponse,
+  DEDUP_START,
+  DEDUP_STOP,
+  DEDUP_PROGRESS,
+  DEDUP_RESULT,
   CHECK_FOR_UPDATES,
   CLEAR_DATABASE,
   CLOSED_PREVIEW_WINDOW,
@@ -65,6 +69,7 @@ import {
   WINDOW_SYSTEM_BUTTON_PRESS,
   WINDOW_UNMAXIMIZE,
 } from './messages';
+import type { DedupProgress, DuplicateGroup } from '../backend/DuplicateDetector';
 
 export class MainMessenger {
   static onceInitialized = async (): Promise<unknown> => {
@@ -221,4 +226,17 @@ export class MainMessenger {
   // Handle model list queries
   static onAutoTagGetModels = (cb: () => AutoTagModelsResponse) =>
     ipcMain.handle(AUTO_TAG_GET_MODELS, () => cb());
+
+  /////////////////// Duplicate Detection ////////////////////
+
+  static onDedupStart = (cb: (filePaths: string[]) => Promise<void>) =>
+    ipcMain.handle(DEDUP_START, (_, filePaths) => cb(filePaths));
+
+  static onDedupStop = (cb: () => Promise<void>) => ipcMain.handle(DEDUP_STOP, () => cb());
+
+  static sendDedupProgress = (wc: WebContents, progress: DedupProgress) =>
+    wc.send(DEDUP_PROGRESS, progress);
+
+  static sendDedupResult = (wc: WebContents, result: DuplicateGroup[]) =>
+    wc.send(DEDUP_RESULT, result);
 }
