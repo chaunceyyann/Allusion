@@ -482,6 +482,25 @@ class LocationStore {
       AppToaster.show({ message: 'New images have been detected.', timeout: 5000 }, 'new-images');
       // might be called a lot when moving many images into a folder, so debounce it
       fileStore.debouncedRefetch();
+
+      // Auto-tag newly imported files if the setting is enabled
+      const autoTagOnImport = localStorage.getItem('autoTagOnImport') === 'true';
+      if (autoTagOnImport) {
+        // Schedule auto-tagging after a delay to let the debounced refetch complete
+        // and the file become available as a ClientFile in the fileStore
+        setTimeout(async () => {
+          try {
+            const clientFile = runInAction(() =>
+              fileStore.fileList.find((f) => f.absolutePath === fileStats.absolutePath),
+            );
+            if (clientFile) {
+              await this.rootStore.autoTagger.autoTagFile(clientFile, this.rootStore.tagStore);
+            }
+          } catch (err) {
+            console.error('Auto-tagging failed for new file:', err);
+          }
+        }, 1000);
+      }
     }
   }
 

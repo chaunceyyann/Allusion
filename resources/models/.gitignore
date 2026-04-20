@@ -1,0 +1,4 @@
+# Model files are too large for version control (~350MB for ONNX models).
+# See each model directory's README.md for download instructions.
+*.onnx
+*.csv

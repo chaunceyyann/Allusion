@@ -121,4 +121,37 @@ let rendererConfig = {
   ],
 };
 
-module.exports = [mainConfig, rendererConfig];
+let workerConfig = {
+  mode: 'development',
+  entry: './src/backend/autoTagWorker.ts',
+  devtool: 'source-map',
+  target: ['node', 'es2022'],
+  output: {
+    filename: 'autoTagWorker.bundle.js',
+    path: __dirname + '/build',
+  },
+  node: {
+    __dirname: false,
+    __filename: false,
+  },
+  resolve: {
+    extensions: ['.js', '.json', '.ts'],
+  },
+  module: {
+    rules: [
+      {
+        test: /\.(ts)$/,
+        exclude: /node_modules/,
+        use: {
+          loader: 'ts-loader',
+        },
+      },
+    ],
+  },
+  externals: {
+    'onnxruntime-node': 'commonjs onnxruntime-node',
+    sharp: 'commonjs sharp',
+  },
+};
+
+module.exports = [mainConfig, rendererConfig, workerConfig];

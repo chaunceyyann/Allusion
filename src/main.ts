@@ -24,6 +24,9 @@ import { IS_DEV, IS_MAC } from '../common/process';
 import { TagDTO, ROOT_TAG_ID } from './api/tag';
 import { MainMessenger } from './ipc/main';
 import { WindowSystemButtonPress } from './ipc/messages';
+import { ModelRegistry } from './backend/ModelRegistry';
+import { WorkerManager } from './backend/WorkerManager';
+import { DownloadManager } from './backend/DownloadManager';
 
 // TODO: change this when running in portable mode, see portable-improvements branch
 const basePath = app.getPath('userData');
@@ -45,6 +48,11 @@ let previewWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let clipServer: ClipServer | null = null;
 
+// Auto-tagging infrastructure
+const modelRegistry = new ModelRegistry();
+const workerManager = new WorkerManager();
+const downloadManager = new DownloadManager();
+
 function initialize() {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     if (details.responseHeaders === undefined) {
@@ -62,6 +70,9 @@ function initialize() {
 
   createWindow();
   createPreviewWindow();
+
+  // Scan for downloaded auto-tagging models
+  modelRegistry.scanDownloadedModels();
 
   // Initialize preferences file and its consequences
   try {
@@ -744,6 +755,65 @@ MainMessenger.onToggleCheckUpdatesOnStartup(() => {
 });
 
 MainMessenger.onIsCheckUpdatesOnStartupEnabled(() => preferences.checkForUpdatesOnStartup === true);
+
+// ----------------------------- Auto-Tagging IPC Handlers ----------------------------- //
+
+MainMessenger.onAutoTagInfer(async (req) => {
+  try {
+    const tags = await workerManager.infer(
+      req.filePath,
+      req.generalThreshold,
+      req.characterThreshold,
+      req.overrideCaptionFile,
+    );
+    return { tags, source: 'model' as const };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown inference error';
+    return { tags: [], source: 'model' as const, error: message };
+  }
+});
+
+MainMessenger.onAutoTagLoadModel(async () => {
+  const paths = modelRegistry.resolveModelPaths(modelRegistry.activeModelId);
+  if (!paths) {
+    throw new Error(`Model ${modelRegistry.activeModelId} is not available locally`);
+  }
+  const result = await workerManager.loadModel(paths.modelPath, paths.csvPath);
+  return { isModelLoaded: result.success, executionProvider: result.executionProvider };
+});
+
+MainMessenger.onAutoTagGetStatus(async () => {
+  return workerManager.getStatus();
+});
+
+MainMessenger.onAutoTagDownloadModel(async (modelId) => {
+  const modelInfo = ModelRegistry.CATALOG.find((m) => m.id === modelId);
+  if (!modelInfo) {
+    return { success: false, modelId, error: `Unknown model: ${modelId}` };
+  }
+  const destDir = path.join(app.getPath('userData'), 'models', modelId);
+  const result = await downloadManager.downloadModel(modelInfo, destDir, (progress) => {
+    const wc = mainWindow?.webContents;
+    if (wc) {
+      MainMessenger.sendAutoTagDownloadProgress(wc, progress);
+    }
+  });
+  if (result.success) {
+    modelRegistry.scanDownloadedModels();
+    modelRegistry.setActiveModel(modelId);
+    // Auto-load the newly downloaded model
+    const paths = modelRegistry.resolveModelPaths(modelId);
+    if (paths) {
+      await workerManager.loadModel(paths.modelPath, paths.csvPath);
+    }
+  }
+  return result;
+});
+
+MainMessenger.onAutoTagGetModels(() => ({
+  models: modelRegistry.getModelsWithStatus(),
+  activeModelId: modelRegistry.activeModelId,
+}));
 
 // Helper functions and variables/constants
 

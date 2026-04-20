@@ -2,10 +2,22 @@ import { ipcRenderer } from 'electron';
 import path from 'path';
 import {
   ADD_TAGS_TO_FILE,
+  AUTO_TAG_DOWNLOAD_MODEL,
+  AUTO_TAG_DOWNLOAD_PROGRESS,
+  AUTO_TAG_GET_MODELS,
+  AUTO_TAG_GET_STATUS,
+  AUTO_TAG_INFER,
+  AUTO_TAG_LOAD_MODEL,
+  AutoTagInferRequest,
+  AutoTagInferResponse,
+  AutoTagModelStatus,
+  AutoTagModelsResponse,
   CHECK_FOR_UPDATES,
   CLEAR_DATABASE,
   CLOSED_PREVIEW_WINDOW,
   DRAG_EXPORT,
+  DownloadProgress,
+  DownloadResult,
   FULL_SCREEN_CHANGED,
   GET_PATH,
   GET_TAGS,
@@ -186,4 +198,23 @@ export class RendererMessenger {
     const userDataPath = await RendererMessenger.getPath('userData');
     return path.join(userDataPath, 'themes');
   };
+
+  /////////////////// Auto-Tagging ////////////////////
+  static autoTagInfer = (req: AutoTagInferRequest): Promise<AutoTagInferResponse> =>
+    ipcRenderer.invoke(AUTO_TAG_INFER, req);
+
+  static autoTagLoadModel = (): Promise<AutoTagModelStatus> =>
+    ipcRenderer.invoke(AUTO_TAG_LOAD_MODEL);
+
+  static autoTagGetStatus = (): Promise<AutoTagModelStatus> =>
+    ipcRenderer.invoke(AUTO_TAG_GET_STATUS);
+
+  static autoTagDownloadModel = (modelId: string): Promise<DownloadResult> =>
+    ipcRenderer.invoke(AUTO_TAG_DOWNLOAD_MODEL, modelId);
+
+  static onAutoTagDownloadProgress = (cb: (progress: DownloadProgress) => void) =>
+    ipcRenderer.on(AUTO_TAG_DOWNLOAD_PROGRESS, (_, progress) => cb(progress));
+
+  static autoTagGetModels = (): Promise<AutoTagModelsResponse> =>
+    ipcRenderer.invoke(AUTO_TAG_GET_MODELS);
 }

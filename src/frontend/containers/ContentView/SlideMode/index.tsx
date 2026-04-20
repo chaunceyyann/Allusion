@@ -45,11 +45,34 @@ interface SlideViewProps {
 }
 
 const SlideView = observer(({ width, height }: SlideViewProps) => {
-  const { uiStore, fileStore, imageLoader } = useStore();
+  const { uiStore, fileStore, imageLoader, autoTagger, tagStore } = useStore();
   const file = uiStore.firstFileInView;
   const eventManager = useMemo(() => (file ? new CommandDispatcher(file) : undefined), [file]);
   const isFirst = useComputed(() => uiStore.firstItem === 0);
   const isLast = useComputed(() => uiStore.firstItem === fileStore.fileList.length - 1);
+
+  // Auto-tag on load: when viewing an untagged image with the setting enabled
+  useEffect(() => {
+    return reaction(
+      () => uiStore.firstFileInView,
+      (currentFile) => {
+        if (!currentFile) {
+          return;
+        }
+        try {
+          const autoTagOnLoad = localStorage.getItem('autoTagOnLoad') === 'true';
+          if (autoTagOnLoad && currentFile.tags.size === 0) {
+            autoTagger.autoTagFile(currentFile, tagStore).catch((err) => {
+              console.error('Auto-tag on load failed for', currentFile.absolutePath, err);
+            });
+          }
+        } catch (err) {
+          console.error('Auto-tag on load error:', err);
+        }
+      },
+      { fireImmediately: true },
+    );
+  }, [uiStore, autoTagger, tagStore]);
 
   // Go to the first selected image on load
   useEffect(() => {
