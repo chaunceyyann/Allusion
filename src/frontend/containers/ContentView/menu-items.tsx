@@ -1,5 +1,6 @@
 import { shell } from 'electron';
-import { observer } from 'mobx-react-lite';
+import { observer, useLocalObservable } from 'mobx-react-lite';
+import { runInAction } from 'mobx';
 import SysPath from 'path';
 import React from 'react';
 
@@ -34,7 +35,7 @@ export const MissingFileMenuItems = observer(() => {
 });
 
 export const FileViewerMenuItems = ({ file }: { file: ClientFile }) => {
-  const { uiStore, locationStore } = useStore();
+  const { uiStore, locationStore, autoTagger, tagStore } = useStore();
 
   const handleViewFullSize = () => {
     uiStore.selectFile(file, true);
@@ -45,6 +46,21 @@ export const FileViewerMenuItems = ({ file }: { file: ClientFile }) => {
     // Only clear selection if file is not already selected
     uiStore.selectFile(file, !uiStore.fileSelection.has(file));
     uiStore.openPreviewWindow();
+  };
+
+  const handleAutoTag = async () => {
+    try {
+      await autoTagger.loadModel();
+      await autoTagger.autoTagFile(file, tagStore);
+    } catch (err) {
+      console.error('Auto-tag failed:', err);
+    }
+  };
+
+  const handleClearTags = () => {
+    runInAction(() => {
+      file.tags.forEach((tag) => file.removeTag(tag));
+    });
   };
 
   const handleSearchSimilar = (
@@ -66,6 +82,16 @@ export const FileViewerMenuItems = ({ file }: { file: ClientFile }) => {
         onClick={handlePreviewWindow}
         text="Open In Preview Window"
         icon={IconSet.PREVIEW}
+      />
+      <MenuItem
+        onClick={handleAutoTag}
+        text="Auto-Tag This Image"
+        icon={IconSet.TAG}
+      />
+      <MenuItem
+        onClick={handleClearTags}
+        text="Clear All Tags"
+        icon={IconSet.DELETE}
       />
       <MenuItem
         onClick={uiStore.openToolbarTagPopover}
@@ -162,15 +188,40 @@ export const FileViewerMenuItems = ({ file }: { file: ClientFile }) => {
 };
 
 export const SlideFileViewerMenuItems = observer(({ file }: { file: ClientFile }) => {
-  const { uiStore } = useStore();
+  const { uiStore, autoTagger, tagStore } = useStore();
 
   const handlePreviewWindow = () => {
     uiStore.selectFile(file, true);
     uiStore.openPreviewWindow();
   };
 
+  const handleAutoTag = async () => {
+    try {
+      await autoTagger.loadModel();
+      await autoTagger.autoTagFile(file, tagStore);
+    } catch (err) {
+      console.error('Auto-tag failed:', err);
+    }
+  };
+
+  const handleClearTags = () => {
+    runInAction(() => {
+      file.tags.forEach((tag) => file.removeTag(tag));
+    });
+  };
+
   return (
     <>
+      <MenuItem
+        onClick={handleAutoTag}
+        text="Auto-Tag This Image"
+        icon={IconSet.TAG}
+      />
+      <MenuItem
+        onClick={handleClearTags}
+        text="Clear All Tags"
+        icon={IconSet.DELETE}
+      />
       <MenuItem
         onClick={handlePreviewWindow}
         text="Open In Preview Window"

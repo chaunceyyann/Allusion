@@ -773,12 +773,12 @@ MainMessenger.onAutoTagInfer(async (req) => {
   }
 });
 
-MainMessenger.onAutoTagLoadModel(async () => {
+MainMessenger.onAutoTagLoadModel(async (executionProvider?: string) => {
   const paths = modelRegistry.resolveModelPaths(modelRegistry.activeModelId);
   if (!paths) {
     throw new Error(`Model ${modelRegistry.activeModelId} is not available locally`);
   }
-  const result = await workerManager.loadModel(paths.modelPath, paths.csvPath);
+  const result = await workerManager.loadModel(paths.modelPath, paths.csvPath, executionProvider);
   return { isModelLoaded: result.success, executionProvider: result.executionProvider };
 });
 

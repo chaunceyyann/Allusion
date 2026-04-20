@@ -15,7 +15,6 @@ let mainConfig = {
   output: {
     filename: 'main.bundle.js',
     path: __dirname + '/build',
-    clean: true,
     // keep filename ending the same: certain filename patterns required for certain Electron icon uses
     assetModuleFilename: 'assets/[hash]_[name][ext][query]',
   },
@@ -25,6 +24,9 @@ let mainConfig = {
   },
   resolve: {
     extensions: ['.js', '.json', '.ts'],
+  },
+  externals: {
+    sharp: 'commonjs sharp',
   },
   module: {
     rules: [

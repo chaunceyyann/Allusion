@@ -20,7 +20,7 @@ import {
   PredictedTag,
   TagMapping,
 } from './autoTagTypes';
-import { sigmoid, filterAndSortTags, parseTagCsvContent, preprocessImage, parseCaptionContent } from './autoTagUtils';
+import { sigmoid, filterAndSortTags, parseTagCsvContent, parseCaptionContent } from './autoTagUtils';
 
 // ---------------------------------------------------------------------------
 // Worker state
@@ -44,12 +44,8 @@ let currentExecutionProvider: string | null = null;
  * 'cpu' if it is unavailable.
  */
 function getExecutionProvider(): string {
-  const platform = process.platform;
-  const arch = process.arch;
-
-  if (platform === 'darwin') return 'coreml';
-  if (platform === 'win32') return 'dml';
-  if (platform === 'linux' && arch === 'x64') return 'cuda';
+  // Force CPU for stability — CoreML can crash with large models on Apple Silicon
+  // TODO: Re-enable CoreML once onnxruntime-node stabilizes on macOS ARM
   return 'cpu';
 }
 
@@ -182,6 +178,7 @@ async function handleInfer(
   characterThreshold: number,
   overrideCaptionFile: boolean,
   requestId?: string,
+  tensorData?: Float32Array,
 ): Promise<void> {
   if (isSwitchingModel) {
     postResponse({
@@ -216,8 +213,17 @@ async function handleInfer(
       }
     }
 
-    // Preprocess image
-    const { tensor } = await preprocessImage(filePath);
+    // Use pre-processed tensor from main process
+    if (!tensorData) {
+      postResponse({
+        type: 'inferResult',
+        tags: [],
+        source: 'model',
+        error: 'No preprocessed tensor data provided. Image preprocessing must happen in the main process.',
+      }, requestId);
+      return;
+    }
+    const tensor = tensorData;
 
     // Create ONNX tensor — shape [1, 448, 448, 3]
     const inputTensor = new ort.Tensor('float32', tensor, [1, 448, 448, 3]);
@@ -316,6 +322,7 @@ if (parentPort) {
             message.characterThreshold,
             message.overrideCaptionFile,
             requestId,
+            message.tensorData,
           );
           break;
 

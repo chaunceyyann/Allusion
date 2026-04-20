@@ -3,6 +3,18 @@ import * as path from 'path';
 import { app } from 'electron';
 import { ModelInfo, ModelAvailability } from './autoTagTypes';
 
+const IS_DEV = process.env.NODE_ENV === 'development';
+
+/**
+ * Resolves the path to a bundled resource, handling both dev and packaged modes.
+ * In dev mode: resources are at ../resources relative to build/
+ * In packaged mode: resources are at ../../resources relative to build/ (inside app.asar)
+ */
+function getModelResourcePath(resourcePath: string): string {
+  const relativeResourcesPath = (IS_DEV ? '../' : '../../') + 'resources';
+  return path.resolve(__dirname, relativeResourcesPath, resourcePath);
+}
+
 /**
  * Hardcoded catalog of all supported WD Tagger model variants.
  * Includes 5 V2 models and 3 V3 models from SmilingWolf on HuggingFace.
@@ -115,8 +127,8 @@ export class ModelRegistry {
 
     // Check bundled path first (only the default model is bundled)
     if (catalogEntry.isBundled) {
-      const bundledModel = path.join(process.resourcesPath, 'models', modelId, MODEL_ONNX_FILENAME);
-      const bundledCsv = path.join(process.resourcesPath, 'models', modelId, TAG_CSV_FILENAME);
+      const bundledModel = getModelResourcePath(path.join('models', modelId, MODEL_ONNX_FILENAME));
+      const bundledCsv = getModelResourcePath(path.join('models', modelId, TAG_CSV_FILENAME));
       if (fs.existsSync(bundledModel) && fs.existsSync(bundledCsv)) {
         return { modelPath: bundledModel, csvPath: bundledCsv };
       }

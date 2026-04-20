@@ -51,28 +51,10 @@ const SlideView = observer(({ width, height }: SlideViewProps) => {
   const isFirst = useComputed(() => uiStore.firstItem === 0);
   const isLast = useComputed(() => uiStore.firstItem === fileStore.fileList.length - 1);
 
-  // Auto-tag on load: when viewing an untagged image with the setting enabled
-  useEffect(() => {
-    return reaction(
-      () => uiStore.firstFileInView,
-      (currentFile) => {
-        if (!currentFile) {
-          return;
-        }
-        try {
-          const autoTagOnLoad = localStorage.getItem('autoTagOnLoad') === 'true';
-          if (autoTagOnLoad && currentFile.tags.size === 0) {
-            autoTagger.autoTagFile(currentFile, tagStore).catch((err) => {
-              console.error('Auto-tag on load failed for', currentFile.absolutePath, err);
-            });
-          }
-        } catch (err) {
-          console.error('Auto-tag on load error:', err);
-        }
-      },
-      { fireImmediately: true },
-    );
-  }, [uiStore, autoTagger, tagStore]);
+  // Auto-tag on load is disabled — use right-click "Auto-Tag This Image" instead.
+  // The MobX reaction approach causes re-trigger loops when tags are created/assigned
+  // because file list refetches replace ClientFile objects.
+  // TODO: Re-implement with a debounced, non-reactive approach if needed.
 
   // Go to the first selected image on load
   useEffect(() => {

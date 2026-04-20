@@ -203,8 +203,8 @@ export class MainMessenger {
     ipcMain.handle(AUTO_TAG_INFER, (_, req) => cb(req));
 
   // Handle model load requests
-  static onAutoTagLoadModel = (cb: () => Promise<AutoTagModelStatus>) =>
-    ipcMain.handle(AUTO_TAG_LOAD_MODEL, () => cb());
+  static onAutoTagLoadModel = (cb: (executionProvider?: string) => Promise<AutoTagModelStatus>) =>
+    ipcMain.handle(AUTO_TAG_LOAD_MODEL, (_, executionProvider) => cb(executionProvider));
 
   // Handle status queries
   static onAutoTagGetStatus = (cb: () => Promise<AutoTagModelStatus>) =>
