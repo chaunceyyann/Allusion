@@ -9,6 +9,7 @@ import UiStore from './UiStore';
 import LocationStore from './LocationStore';
 import ExifIO from 'common/ExifIO';
 import ImageLoader from '../image/ImageLoader';
+import AutoTagger from '../image/AutoTagger';
 
 import { RendererMessenger } from 'src/ipc/renderer';
 import SearchStore from './SearchStore';
@@ -39,6 +40,7 @@ class RootStore {
   readonly searchStore: SearchStore;
   readonly exifTool: ExifIO;
   readonly imageLoader: ImageLoader;
+  readonly autoTagger: AutoTagger;
   readonly getWindowTitle: () => string;
 
   private constructor(
@@ -55,6 +57,7 @@ class RootStore {
     this.#backup = backup;
     this.exifTool = new ExifIO(localStorage.getItem('hierarchical-separator') || undefined);
     this.imageLoader = new ImageLoader(this.exifTool);
+    this.autoTagger = new AutoTagger();
     this.getWindowTitle = () => formatWindowTitle(this.fileStore, this.uiStore);
   }
 

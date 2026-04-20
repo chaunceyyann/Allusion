@@ -2,6 +2,7 @@ import { IImportItem } from '../clipper/server';
 import { ID } from '../api/id';
 import { TagDTO } from '../api/tag';
 import { ViewMethod } from '../frontend/stores/UiStore';
+import { PredictedTag, ModelAvailability, DownloadProgress, DownloadResult } from '../backend/autoTagTypes';
 
 /**
  * All types of messages between the main and renderer process in one place, with type safety.
@@ -119,3 +120,38 @@ export const GET_VERSION = 'GET_VERSION';
 export const CHECK_FOR_UPDATES = 'CHECK_FOR_UPDATES';
 export const TOGGLE_CHECK_UPDATES_ON_STARTUP = 'TOGGLE_CHECK_UPDATES_ON_STARTUP';
 export const IS_CHECK_UPDATES_ON_STARTUP_ENABLED = 'IS_CHECK_UPDATES_ON_STARTUP_ENABLED';
+
+/////////////////// Auto-Tagging ////////////////////
+export const AUTO_TAG_INFER = 'AUTO_TAG_INFER';
+export const AUTO_TAG_LOAD_MODEL = 'AUTO_TAG_LOAD_MODEL';
+export const AUTO_TAG_GET_STATUS = 'AUTO_TAG_GET_STATUS';
+export const AUTO_TAG_DOWNLOAD_MODEL = 'AUTO_TAG_DOWNLOAD_MODEL';
+export const AUTO_TAG_DOWNLOAD_PROGRESS = 'AUTO_TAG_DOWNLOAD_PROGRESS';
+export const AUTO_TAG_DOWNLOAD_COMPLETE = 'AUTO_TAG_DOWNLOAD_COMPLETE';
+export const AUTO_TAG_GET_MODELS = 'AUTO_TAG_GET_MODELS';
+
+export type AutoTagInferRequest = {
+  filePath: string;
+  generalThreshold: number;
+  characterThreshold: number;
+  overrideCaptionFile: boolean;
+};
+
+export type AutoTagInferResponse = {
+  tags: PredictedTag[];
+  source: 'model' | 'caption';
+  error?: string;
+};
+
+export type AutoTagModelStatus = {
+  isModelLoaded: boolean;
+  executionProvider: string | null;
+};
+
+export type AutoTagModelsResponse = {
+  models: ModelAvailability[];
+  activeModelId: string;
+};
+
+// Re-export auto-tag types for convenience
+export type { PredictedTag, ModelAvailability, DownloadProgress, DownloadResult };

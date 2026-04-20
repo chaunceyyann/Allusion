@@ -1,9 +1,21 @@
 import { BrowserWindow, ipcMain, WebContents } from 'electron';
 import {
   ADD_TAGS_TO_FILE,
+  AUTO_TAG_INFER,
+  AUTO_TAG_LOAD_MODEL,
+  AUTO_TAG_GET_STATUS,
+  AUTO_TAG_DOWNLOAD_MODEL,
+  AUTO_TAG_DOWNLOAD_PROGRESS,
+  AUTO_TAG_GET_MODELS,
+  AutoTagInferRequest,
+  AutoTagInferResponse,
+  AutoTagModelStatus,
+  AutoTagModelsResponse,
   CHECK_FOR_UPDATES,
   CLEAR_DATABASE,
   CLOSED_PREVIEW_WINDOW,
+  DownloadProgress,
+  DownloadResult,
   DRAG_EXPORT,
   FULL_SCREEN_CHANGED,
   GET_PATH,
@@ -183,4 +195,30 @@ export class MainMessenger {
 
   static onIsCheckUpdatesOnStartupEnabled = (cb: () => boolean) =>
     ipcMain.on(IS_CHECK_UPDATES_ON_STARTUP_ENABLED, (e) => (e.returnValue = cb()));
+
+  /////////////////// Auto-Tagging ////////////////////
+
+  // Handle inference requests from renderer
+  static onAutoTagInfer = (cb: (req: AutoTagInferRequest) => Promise<AutoTagInferResponse>) =>
+    ipcMain.handle(AUTO_TAG_INFER, (_, req) => cb(req));
+
+  // Handle model load requests
+  static onAutoTagLoadModel = (cb: () => Promise<AutoTagModelStatus>) =>
+    ipcMain.handle(AUTO_TAG_LOAD_MODEL, () => cb());
+
+  // Handle status queries
+  static onAutoTagGetStatus = (cb: () => Promise<AutoTagModelStatus>) =>
+    ipcMain.handle(AUTO_TAG_GET_STATUS, () => cb());
+
+  // Handle model download requests (returns immediately, sends progress via events)
+  static onAutoTagDownloadModel = (cb: (modelId: string) => Promise<DownloadResult>) =>
+    ipcMain.handle(AUTO_TAG_DOWNLOAD_MODEL, (_, modelId) => cb(modelId));
+
+  // Send download progress to renderer
+  static sendAutoTagDownloadProgress = (wc: WebContents, progress: DownloadProgress) =>
+    wc.send(AUTO_TAG_DOWNLOAD_PROGRESS, progress);
+
+  // Handle model list queries
+  static onAutoTagGetModels = (cb: () => AutoTagModelsResponse) =>
+    ipcMain.handle(AUTO_TAG_GET_MODELS, () => cb());
 }

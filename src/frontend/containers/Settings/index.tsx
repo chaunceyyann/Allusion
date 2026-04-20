@@ -5,6 +5,7 @@ import PopupWindow from '../../components/PopupWindow';
 import { useStore } from '../../contexts/StoreContext';
 import { Advanced } from './Advanced';
 import { Appearance } from './Appearance';
+import { AutoTagging } from './AutoTagging';
 import { BackgroundProcesses } from './BackgroundProcesses';
 import { ImageFormatPicker } from './ImageFormatPicker';
 import { ImportExport } from './ImportExport';
@@ -60,6 +61,10 @@ const Tabs = () => {
     {
       label: 'Import/Export',
       content: ImportExport,
+    },
+    {
+      label: 'Auto Tagging',
+      content: AutoTagging,
     },
     {
       label: 'Background Processes',
