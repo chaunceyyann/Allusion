@@ -29,8 +29,9 @@ class AutoTagger {
    * Load the model via IPC (triggers worker thread model load in the main process).
    * Returns true if the model loaded successfully.
    */
-  async loadModel(): Promise<boolean> {
-    if (this.isModelLoaded) {
+  async loadModel(executionProvider?: string): Promise<boolean> {
+    // Allow reload by not short-circuiting when provider is specified
+    if (this.isModelLoaded && !executionProvider) {
       return true;
     }
 
@@ -40,7 +41,7 @@ class AutoTagger {
         'auto-tag-model',
       );
 
-      const status = await RendererMessenger.autoTagLoadModel();
+      const status = await RendererMessenger.autoTagLoadModel(executionProvider);
 
       runInAction(() => {
         this.isModelLoaded = status.isModelLoaded;
@@ -85,6 +86,10 @@ class AutoTagger {
    *    d. If not found, create new tag under root, then assign
    */
   async autoTagFile(file: ClientFile, tagStore: TagStore): Promise<void> {
+    console.log(`[AutoTagger] autoTagFile called for: ${file.absolutePath}`);
+    console.log(`[AutoTagger] Current tags on file: ${file.tags.size}`);
+    console.trace('[AutoTagger] Call stack');
+
     const generalThreshold = parseFloat(
       localStorage.getItem('autoTagGeneralThreshold') ?? '0.25',
     );
@@ -94,6 +99,8 @@ class AutoTagger {
     const overrideCaptionFile =
       localStorage.getItem('autoTagOverrideCaptionFile') === 'true';
 
+    console.log(`[AutoTagger] Sending inference request (threshold: ${generalThreshold})`);
+
     const response = await RendererMessenger.autoTagInfer({
       filePath: file.absolutePath,
       generalThreshold,
@@ -102,35 +109,63 @@ class AutoTagger {
     });
 
     if (response.error) {
-      console.error(`Auto-tag inference error for ${file.absolutePath}:`, response.error);
+      console.error(`[AutoTagger] Inference error for ${file.absolutePath}:`, response.error);
       return;
     }
 
     if (response.tags.length === 0) {
+      console.log(`[AutoTagger] No tags returned, done.`);
       return;
     }
 
-    for (const predictedTag of response.tags) {
-      const normalizedName = normalizeTagName(predictedTag.name);
+    // Limit to top 20 tags max to avoid flooding
+    const MAX_TAGS = 20;
+    const tagsToApply = response.tags.slice(0, MAX_TAGS);
 
-      // Case-insensitive search for existing tag
-      const existingTag = findExistingTag(normalizedName, tagStore.tagList);
+    console.log(`[AutoTagger] Applying ${tagsToApply.length} tags (of ${response.tags.length} returned): ${tagsToApply.slice(0, 5).map(t => t.name).join(', ')}...`);
 
-      if (existingTag) {
-        runInAction(() => {
-          file.addTag(existingTag);
-        });
-      } else {
-        try {
-          const newTag = await tagStore.create(tagStore.root, normalizedName);
-          runInAction(() => {
-            file.addTag(newTag);
-          });
-        } catch (err) {
-          console.error(`Failed to create tag "${normalizedName}":`, err);
+    // Separate existing tags from new ones that need creation
+    const existingTags: any[] = [];
+    const newTagNames: string[] = [];
+
+    runInAction(() => {
+      for (const predictedTag of tagsToApply) {
+        const normalizedName = normalizeTagName(predictedTag.name);
+        const existingTag = findExistingTag(normalizedName, tagStore.tagList);
+        if (existingTag) {
+          existingTags.push(existingTag);
+        } else {
+          newTagNames.push(normalizedName);
         }
       }
-    }
+    });
+
+    // Create all new tags in parallel
+    const root = runInAction(() => tagStore.root);
+    const createdTags = await Promise.all(
+      newTagNames.map(async (name) => {
+        try {
+          return await tagStore.create(root, name);
+        } catch (err) {
+          console.error(`[AutoTagger] Failed to create tag "${name}":`, err);
+          return null;
+        }
+      }),
+    );
+
+    // Assign all tags (existing + newly created) in a single action
+    runInAction(() => {
+      for (const tag of existingTags) {
+        file.addTag(tag);
+      }
+      for (const tag of createdTags) {
+        if (tag) {
+          file.addTag(tag);
+        }
+      }
+    });
+
+    console.log(`[AutoTagger] Done. Applied ${existingTags.length} existing + ${createdTags.filter(Boolean).length} new tags.`);
   }
 
   /**
@@ -141,7 +176,9 @@ class AutoTagger {
     const loaded = await this.loadModel();
     if (!loaded) return;
 
-    const total = files.length;
+    // Snapshot the file list to avoid issues with MobX array mutations during iteration
+    const fileSnapshot = [...files];
+    const total = fileSnapshot.length;
     if (total === 0) {
       AppToaster.show({ message: 'No images to auto-tag.', timeout: 3000 }, 'auto-tag-bulk');
       return;
@@ -157,7 +194,7 @@ class AutoTagger {
 
     try {
       for (let i = 0; i < total; i++) {
-        const file = files[i];
+        const file = fileSnapshot[i];
 
         AppToaster.show(
           {

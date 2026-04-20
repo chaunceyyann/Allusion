@@ -69,6 +69,8 @@ export type WorkerRequest = (
       generalThreshold: number;
       characterThreshold: number;
       overrideCaptionFile: boolean;
+      /** Pre-processed tensor data (BGR float32, 602112 elements). If provided, skips sharp preprocessing in worker. */
+      tensorData?: Float32Array;
     }
   | { type: 'dispose' }
   | { type: 'getStatus' }

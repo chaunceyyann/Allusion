@@ -13,9 +13,17 @@ const AUTO_TAG_GENERAL_THRESHOLD_KEY = 'autoTagGeneralThreshold';
 const AUTO_TAG_CHARACTER_THRESHOLD_KEY = 'autoTagCharacterThreshold';
 const AUTO_TAG_OVERRIDE_CAPTION_KEY = 'autoTagOverrideCaptionFile';
 const AUTO_TAG_ACTIVE_MODEL_KEY = 'autoTagActiveModel';
+const AUTO_TAG_EXECUTION_PROVIDER_KEY = 'autoTagExecutionProvider';
 
 const DEFAULT_GENERAL_THRESHOLD = 0.25;
 const DEFAULT_CHARACTER_THRESHOLD = 1.0;
+
+const EXECUTION_PROVIDERS = [
+  { value: 'cpu', label: 'CPU' },
+  { value: 'coreml', label: 'CoreML (macOS GPU)' },
+  { value: 'dml', label: 'DirectML (Windows GPU)' },
+  { value: 'cuda', label: 'CUDA (NVIDIA GPU)' },
+];
 
 export const AutoTagging = observer(() => {
   const { fileStore, tagStore, autoTagger } = useStore();
@@ -39,6 +47,11 @@ export const AutoTagging = observer(() => {
   );
   const [overrideCaptionFile, setOverrideCaptionFile] = useState(
     () => localStorage.getItem(AUTO_TAG_OVERRIDE_CAPTION_KEY) === 'true',
+  );
+
+  // --- Execution provider state ---
+  const [executionProvider, setExecutionProvider] = useState(
+    () => localStorage.getItem(AUTO_TAG_EXECUTION_PROVIDER_KEY) ?? 'cpu',
   );
 
   // --- Threshold states ---
@@ -176,8 +189,8 @@ export const AutoTagging = observer(() => {
   );
 
   const handleLoadModel = useCallback(async () => {
-    await autoTagger.loadModel();
-  }, [autoTagger]);
+    await autoTagger.loadModel(executionProvider);
+  }, [autoTagger, executionProvider]);
 
   const handleBulkAutoTag = useCallback(async () => {
     const numFiles = fileStore.fileList.length;
@@ -216,14 +229,29 @@ export const AutoTagging = observer(() => {
           ? `✅ Model loaded — running on ${autoTagger.executionProvider ?? 'unknown'} provider.`
           : '⏳ Model is not loaded yet.'}
       </p>
-      {!autoTagger.isModelLoaded && (
-        <Button
-          text="Load Model"
-          onClick={handleLoadModel}
-          styling="outlined"
-          icon={IconSet.RELOAD}
-        />
-      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+        <label style={{ margin: 0 }}>
+          Execution Provider
+          <select
+            value={executionProvider}
+            onChange={(e) => {
+              setExecutionProvider(e.target.value);
+              localStorage.setItem(AUTO_TAG_EXECUTION_PROVIDER_KEY, e.target.value);
+            }}
+            style={{ marginLeft: '8px' }}
+          >
+            {EXECUTION_PROVIDERS.map((ep) => (
+              <option key={ep.value} value={ep.value}>{ep.label}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <Button
+        text={autoTagger.isModelLoaded ? 'Reload Model' : 'Load Model'}
+        onClick={handleLoadModel}
+        styling="outlined"
+        icon={IconSet.RELOAD}
+      />
 
       <h4>Model Selection</h4>
       <label>

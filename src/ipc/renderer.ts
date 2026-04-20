@@ -203,8 +203,8 @@ export class RendererMessenger {
   static autoTagInfer = (req: AutoTagInferRequest): Promise<AutoTagInferResponse> =>
     ipcRenderer.invoke(AUTO_TAG_INFER, req);
 
-  static autoTagLoadModel = (): Promise<AutoTagModelStatus> =>
-    ipcRenderer.invoke(AUTO_TAG_LOAD_MODEL);
+  static autoTagLoadModel = (executionProvider?: string): Promise<AutoTagModelStatus> =>
+    ipcRenderer.invoke(AUTO_TAG_LOAD_MODEL, executionProvider);
 
   static autoTagGetStatus = (): Promise<AutoTagModelStatus> =>
     ipcRenderer.invoke(AUTO_TAG_GET_STATUS);

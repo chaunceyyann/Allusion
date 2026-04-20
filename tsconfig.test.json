@@ -1,0 +1,4 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["widgets/**/*", "src/**/*", "custom.d.ts", "wasm/**/*", "common/**/*", "tests/**/*"]
+}

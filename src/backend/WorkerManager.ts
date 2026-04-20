@@ -10,6 +10,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 
 import { WorkerRequest, WorkerResponse, PredictedTag } from './autoTagTypes';
+import { preprocessImage } from './preprocessImage';
 
 /** Timeout in milliseconds for inference requests. */
 const INFERENCE_TIMEOUT_MS = 30_000;
@@ -149,12 +150,13 @@ export class WorkerManager {
   async loadModel(
     modelPath: string,
     csvPath: string,
+    executionProvider?: string,
   ): Promise<{ success: boolean; executionProvider: string }> {
     const response = await this.sendRequest({
       type: 'loadModel',
       modelPath,
       csvPath,
-      executionProvider: getExecutionProvider(),
+      executionProvider: executionProvider ?? getExecutionProvider(),
     });
 
     if (response.type === 'modelLoaded') {
@@ -183,6 +185,16 @@ export class WorkerManager {
     characterThreshold: number,
     overrideCaptionFile: boolean,
   ): Promise<PredictedTag[]> {
+    // Preprocess image in the main process (sharp crashes in worker threads due to V8 sandbox)
+    let tensorData: Float32Array | undefined;
+    try {
+      const result = await preprocessImage(filePath);
+      tensorData = result.tensor;
+    } catch (err) {
+      // If preprocessing fails, send without tensor — worker will report the error
+      console.error('[WorkerManager] Image preprocessing failed:', err);
+    }
+
     const response = await this.sendRequest(
       {
         type: 'infer',
@@ -190,6 +202,7 @@ export class WorkerManager {
         generalThreshold,
         characterThreshold,
         overrideCaptionFile,
+        tensorData,
       },
       INFERENCE_TIMEOUT_MS,
     );
@@ -264,11 +277,6 @@ export class WorkerManager {
  * 'cpu' if it is unavailable.
  */
 function getExecutionProvider(): string {
-  const platform = process.platform;
-  const arch = process.arch;
-
-  if (platform === 'darwin') return 'coreml';
-  if (platform === 'win32') return 'dml';
-  if (platform === 'linux' && arch === 'x64') return 'cuda';
+  // Force CPU for stability — CoreML can crash with large models on Apple Silicon
   return 'cpu';
 }
